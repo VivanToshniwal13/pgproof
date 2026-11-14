@@ -1,0 +1,6 @@
+{
+  "name": "PGProof",
+  "description": "Your PG deposit, protected by proof. Timestamped move-in scans, complaint tracking, AI deduction audits, and deposit recovery notices for Bengaluru PG tenants.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

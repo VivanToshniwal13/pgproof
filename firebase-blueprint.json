@@ -1,0 +1,288 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Tenant profile information",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Tenant full name"
+        },
+        "phone": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 20,
+          "description": "Tenant mobile number"
+        },
+        "city": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "City of residence"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Account creation server timestamp"
+        }
+      },
+      "required": ["name", "phone", "city", "createdAt"]
+    },
+    "PgStay": {
+      "title": "PgStay",
+      "description": "Paying-guest accommodation record owned by a tenant",
+      "type": "object",
+      "properties": {
+        "ownerUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Firebase Auth UID of the tenant"
+        },
+        "pgName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 120,
+          "description": "Name of the PG hostel"
+        },
+        "ownerName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 100,
+          "description": "PG owner or warden name"
+        },
+        "ownerPhone": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 20,
+          "description": "PG owner contact number"
+        },
+        "address": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 300,
+          "description": "PG street and locality address"
+        },
+        "roomNumber": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 30,
+          "description": "Room or bed identifier"
+        },
+        "monthlyRent": {
+          "type": "number",
+          "description": "Monthly rent in INR"
+        },
+        "depositAmount": {
+          "type": "number",
+          "description": "Security deposit paid in INR"
+        },
+        "moveInDate": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 30,
+          "description": "ISO date of move-in"
+        },
+        "moveOutDate": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 30,
+          "description": "Optional ISO date of move-out"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation server timestamp"
+        }
+      },
+      "required": [
+        "ownerUid",
+        "pgName",
+        "ownerName",
+        "ownerPhone",
+        "address",
+        "roomNumber",
+        "monthlyRent",
+        "depositAmount",
+        "moveInDate",
+        "createdAt"
+      ]
+    },
+    "MoveInPhoto": {
+      "title": "MoveInPhoto",
+      "description": "Timestamped move-in condition photo with Gemini damage analysis",
+      "type": "object",
+      "properties": {
+        "ownerUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "roomArea": {
+          "type": "string",
+          "enum": ["bed", "wall", "bathroom", "wardrobe", "floor"]
+        },
+        "photoUrl": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "aiDamageTags": {
+          "type": "array",
+          "description": "Pre-existing damage tags detected by Gemini"
+        },
+        "aiSummary": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 500
+        },
+        "capturedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "locked": {
+          "type": "boolean"
+        }
+      },
+      "required": ["ownerUid", "roomArea", "photoUrl", "aiDamageTags", "aiSummary", "capturedAt", "locked"]
+    },
+    "Complaint": {
+      "title": "Complaint",
+      "description": "Logged PG maintenance or service complaint",
+      "type": "object",
+      "properties": {
+        "ownerUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "category": {
+          "type": "string",
+          "enum": ["food", "hygiene", "wifi", "water", "power", "safety", "other"]
+        },
+        "description": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 1000
+        },
+        "photoUrl": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 2000
+        },
+        "reportedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["open", "fixed"]
+        },
+        "fixedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerUid", "category", "description", "reportedAt", "status"]
+    },
+    "Deduction": {
+      "title": "Deduction",
+      "description": "Deposit deduction claimed by PG owner and audited by Gemini",
+      "type": "object",
+      "properties": {
+        "ownerUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 400
+        },
+        "amount": {
+          "type": "number"
+        },
+        "aiVerdict": {
+          "type": "string",
+          "enum": ["fair", "unfair", "unclear"]
+        },
+        "aiReason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 800
+        },
+        "matchedPhotoId": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 128
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerUid", "reason", "amount", "aiVerdict", "aiReason", "createdAt"]
+    },
+    "Notice": {
+      "title": "Notice",
+      "description": "Escalating communication draft generated from verified tenant proof",
+      "type": "object",
+      "properties": {
+        "ownerUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "stage": {
+          "type": "string",
+          "enum": ["reminder", "formal_notice", "consumer_complaint_draft"]
+        },
+        "content": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 10000
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerUid", "stage", "content", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private tenant profile document"
+    },
+    "/pgs/{pgId}": {
+      "schema": { "$ref": "#/entities/PgStay" },
+      "description": "PG stay records owned by authenticated tenants"
+    },
+    "/pgs/{pgId}/moveInPhotos/{photoId}": {
+      "schema": { "$ref": "#/entities/MoveInPhoto" },
+      "description": "Move-in inspection photos that become immutable when locked"
+    },
+    "/pgs/{pgId}/complaints/{complaintId}": {
+      "schema": { "$ref": "#/entities/Complaint" },
+      "description": "Service and maintenance complaints for a PG stay"
+    },
+    "/pgs/{pgId}/deductions/{deductionId}": {
+      "schema": { "$ref": "#/entities/Deduction" },
+      "description": "Owner deductions evaluated against locked move-in photos"
+    },
+    "/pgs/{pgId}/notices/{noticeId}": {
+      "schema": { "$ref": "#/entities/Notice" },
+      "description": "Saved notice drafts across 3 escalation stages"
+    }
+  }
+}

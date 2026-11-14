@@ -1,0 +1,259 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Core Primitives
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isPgOwner(pgId) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/pgs/$(pgId))
+        && get(/databases/$(database)/documents/pgs/$(pgId)).data.ownerUid == request.auth.uid;
+    }
+
+    // Entity Validators
+    function isValidUser(data) {
+      return data.keys().hasAll(['name', 'phone', 'city', 'createdAt'])
+        && data.keys().hasOnly(['name', 'phone', 'city', 'createdAt'])
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 100
+        && data.phone is string && data.phone.size() >= 0 && data.phone.size() <= 20
+        && data.city is string && data.city.size() >= 1 && data.city.size() <= 80
+        && data.createdAt is timestamp;
+    }
+
+    function isValidPg(data) {
+      return data.keys().hasAll([
+          'ownerUid', 'pgName', 'ownerName', 'ownerPhone',
+          'address', 'roomNumber', 'monthlyRent', 'depositAmount',
+          'moveInDate', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerUid', 'pgName', 'ownerName', 'ownerPhone',
+          'address', 'roomNumber', 'monthlyRent', 'depositAmount',
+          'moveInDate', 'moveOutDate', 'createdAt'
+        ])
+        && isValidId(data.ownerUid)
+        && data.pgName is string && data.pgName.size() >= 2 && data.pgName.size() <= 120
+        && data.ownerName is string && data.ownerName.size() >= 2 && data.ownerName.size() <= 100
+        && data.ownerPhone is string && data.ownerPhone.size() >= 8 && data.ownerPhone.size() <= 20
+        && data.address is string && data.address.size() >= 5 && data.address.size() <= 300
+        && data.roomNumber is string && data.roomNumber.size() >= 1 && data.roomNumber.size() <= 30
+        && data.monthlyRent is number && data.monthlyRent > 0 && data.monthlyRent <= 1000000
+        && data.depositAmount is number && data.depositAmount > 0 && data.depositAmount <= 5000000
+        && data.moveInDate is string && data.moveInDate.size() >= 4 && data.moveInDate.size() <= 30
+        && (!('moveOutDate' in data) || (data.moveOutDate is string && data.moveOutDate.size() <= 30))
+        && data.createdAt is timestamp;
+    }
+
+    function isValidMoveInPhoto(data) {
+      return data.keys().hasAll(['ownerUid', 'roomArea', 'photoUrl', 'aiDamageTags', 'aiSummary', 'capturedAt', 'locked'])
+        && data.keys().hasOnly(['ownerUid', 'roomArea', 'photoUrl', 'aiDamageTags', 'aiSummary', 'capturedAt', 'locked'])
+        && isValidId(data.ownerUid)
+        && data.roomArea is string && data.roomArea in ['bed', 'wall', 'bathroom', 'wardrobe', 'floor']
+        && data.photoUrl is string && data.photoUrl.size() >= 1 && data.photoUrl.size() <= 2000
+        && data.aiDamageTags is list && data.aiDamageTags.size() <= 20
+        && (data.aiDamageTags.size() == 0 || (data.aiDamageTags[0] is string && data.aiDamageTags[0].size() <= 80))
+        && data.aiSummary is string && data.aiSummary.size() <= 500
+        && data.capturedAt is timestamp
+        && data.locked is bool;
+    }
+
+    function isValidComplaint(data) {
+      return data.keys().hasAll(['ownerUid', 'category', 'description', 'reportedAt', 'status'])
+        && data.keys().hasOnly(['ownerUid', 'category', 'description', 'photoUrl', 'reportedAt', 'status', 'fixedAt'])
+        && isValidId(data.ownerUid)
+        && data.category is string && data.category in ['food', 'hygiene', 'wifi', 'water', 'power', 'safety', 'other']
+        && data.description is string && data.description.size() >= 3 && data.description.size() <= 1000
+        && (!('photoUrl' in data) || (data.photoUrl is string && data.photoUrl.size() <= 2000))
+        && data.reportedAt is timestamp
+        && data.status is string && data.status in ['open', 'fixed']
+        && (!('fixedAt' in data) || data.fixedAt is timestamp);
+    }
+
+    function isValidDeduction(data) {
+      return data.keys().hasAll(['ownerUid', 'reason', 'amount', 'aiVerdict', 'aiReason', 'createdAt'])
+        && data.keys().hasOnly(['ownerUid', 'reason', 'amount', 'aiVerdict', 'aiReason', 'matchedPhotoId', 'createdAt'])
+        && isValidId(data.ownerUid)
+        && data.reason is string && data.reason.size() >= 2 && data.reason.size() <= 400
+        && data.amount is number && data.amount > 0 && data.amount <= 5000000
+        && data.aiVerdict is string && data.aiVerdict in ['fair', 'unfair', 'unclear']
+        && data.aiReason is string && data.aiReason.size() >= 1 && data.aiReason.size() <= 800
+        && (!('matchedPhotoId' in data) || (data.matchedPhotoId is string && data.matchedPhotoId.size() <= 128))
+        && data.createdAt is timestamp;
+    }
+
+    function isValidNotice(data) {
+      return data.keys().hasAll(['ownerUid', 'stage', 'content', 'createdAt'])
+        && data.keys().hasOnly(['ownerUid', 'stage', 'content', 'createdAt'])
+        && isValidId(data.ownerUid)
+        && data.stage is string && data.stage in ['reminder', 'formal_notice', 'consumer_complaint_draft']
+        && data.content is string && data.content.size() >= 10 && data.content.size() <= 10000
+        && data.createdAt is timestamp;
+    }
+
+    // Users Collection (PII isolated to owner only)
+    match /users/{uid} {
+      allow get: if isSignedIn() && isValidId(uid) && request.auth.uid == uid;
+      allow list: if false;
+      allow create: if isSignedIn()
+        && isValidId(uid)
+        && request.auth.uid == uid
+        && isValidUser(incoming())
+        && incoming().createdAt == request.time;
+      allow update: if isSignedIn()
+        && isValidId(uid)
+        && request.auth.uid == uid
+        && isValidUser(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'phone', 'city']);
+      allow delete: if false;
+    }
+
+    // PGs Collection
+    match /pgs/{pgId} {
+      allow get: if isSignedIn() && isValidId(pgId) && existing().ownerUid == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.ownerUid == request.auth.uid;
+      allow create: if isSignedIn()
+        && isValidId(pgId)
+        && isValidPg(incoming())
+        && incoming().ownerUid == request.auth.uid
+        && incoming().createdAt == request.time;
+      allow update: if isSignedIn()
+        && isValidId(pgId)
+        && existing().ownerUid == request.auth.uid
+        && isValidPg(incoming())
+        && incoming().ownerUid == existing().ownerUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'pgName', 'ownerName', 'ownerPhone', 'address',
+          'roomNumber', 'monthlyRent', 'depositAmount', 'moveInDate', 'moveOutDate'
+        ]);
+      allow delete: if isSignedIn() && isValidId(pgId) && existing().ownerUid == request.auth.uid;
+
+      // Move-in Photos Subcollection (Immutable once locked == true)
+      match /moveInPhotos/{photoId} {
+        allow get: if isValidId(pgId) && isValidId(photoId) && isPgOwner(pgId);
+        allow list: if isSignedIn() && resource.data.ownerUid == request.auth.uid;
+        allow create: if isValidId(pgId)
+          && isValidId(photoId)
+          && isSignedIn()
+          && isValidMoveInPhoto(incoming())
+          && incoming().ownerUid == request.auth.uid
+          && incoming().locked == false
+          && incoming().capturedAt == request.time
+          && isPgOwner(pgId);
+        allow update: if isValidId(pgId)
+          && isValidId(photoId)
+          && isSignedIn()
+          && existing().locked == false
+          && isValidMoveInPhoto(incoming())
+          && incoming().ownerUid == existing().ownerUid
+          && isPgOwner(pgId)
+          && (
+            (incoming().locked == true
+              && incoming().capturedAt == request.time
+              && incoming().diff(existing()).affectedKeys().hasOnly(['locked', 'capturedAt']))
+            || (incoming().locked == false
+              && incoming().capturedAt == existing().capturedAt
+              && incoming().diff(existing()).affectedKeys().hasOnly(['aiDamageTags', 'aiSummary']))
+          );
+        allow delete: if isValidId(pgId)
+          && isValidId(photoId)
+          && existing().locked == false
+          && isPgOwner(pgId);
+      }
+
+      // Complaints Subcollection
+      match /complaints/{complaintId} {
+        allow get: if isValidId(pgId) && isValidId(complaintId) && isPgOwner(pgId);
+        allow list: if isSignedIn() && resource.data.ownerUid == request.auth.uid;
+        allow create: if isValidId(pgId)
+          && isValidId(complaintId)
+          && isSignedIn()
+          && isValidComplaint(incoming())
+          && incoming().ownerUid == request.auth.uid
+          && incoming().status == 'open'
+          && incoming().reportedAt == request.time
+          && isPgOwner(pgId);
+        allow update: if isValidId(pgId)
+          && isValidId(complaintId)
+          && isSignedIn()
+          && existing().status == 'open'
+          && isValidComplaint(incoming())
+          && incoming().ownerUid == existing().ownerUid
+          && incoming().reportedAt == existing().reportedAt
+          && incoming().status == 'fixed'
+          && incoming().fixedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'fixedAt'])
+          && isPgOwner(pgId);
+        allow delete: if isValidId(pgId) && isValidId(complaintId) && isPgOwner(pgId);
+      }
+
+      // Deductions Subcollection
+      match /deductions/{deductionId} {
+        allow get: if isValidId(pgId) && isValidId(deductionId) && isPgOwner(pgId);
+        allow list: if isSignedIn() && resource.data.ownerUid == request.auth.uid;
+        allow create: if isValidId(pgId)
+          && isValidId(deductionId)
+          && isSignedIn()
+          && isValidDeduction(incoming())
+          && incoming().ownerUid == request.auth.uid
+          && incoming().createdAt == request.time
+          && isPgOwner(pgId);
+        allow update: if isValidId(pgId)
+          && isValidId(deductionId)
+          && isSignedIn()
+          && isValidDeduction(incoming())
+          && incoming().ownerUid == existing().ownerUid
+          && incoming().createdAt == existing().createdAt
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'reason', 'amount', 'aiVerdict', 'aiReason', 'matchedPhotoId'
+          ])
+          && isPgOwner(pgId);
+        allow delete: if isValidId(pgId) && isValidId(deductionId) && isPgOwner(pgId);
+      }
+
+      // Notices Subcollection
+      match /notices/{noticeId} {
+        allow get: if isValidId(pgId) && isValidId(noticeId) && isPgOwner(pgId);
+        allow list: if isSignedIn() && resource.data.ownerUid == request.auth.uid;
+        allow create: if isValidId(pgId)
+          && isValidId(noticeId)
+          && isSignedIn()
+          && isValidNotice(incoming())
+          && incoming().ownerUid == request.auth.uid
+          && incoming().createdAt == request.time
+          && isPgOwner(pgId);
+        allow update: if isValidId(pgId)
+          && isValidId(noticeId)
+          && isSignedIn()
+          && isValidNotice(incoming())
+          && incoming().ownerUid == existing().ownerUid
+          && incoming().createdAt == existing().createdAt
+          && incoming().stage == existing().stage
+          && incoming().diff(existing()).affectedKeys().hasOnly(['content'])
+          && isPgOwner(pgId);
+        allow delete: if isValidId(pgId) && isValidId(noticeId) && isPgOwner(pgId);
+      }
+    }
+  }
+}
